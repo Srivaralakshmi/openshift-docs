@@ -1,0 +1,174 @@
+// This module is included in the following assembly:
+//
+// *openshift_pipelines/understanding-openshift-pipelines.adoc
+
+[id="about-whenexpression_{context}"]
+= When expression
+
+`when` expressions help to guard task execution by setting a criteria for the execution of tasks within a Pipeline. `when` expressions contain a list of components, which allow a Task to run only when certain criteria are met.
+
+The key components of a `when` expression are as follows:
+
+* `input`: Represents static inputs or variables such as a parameter, task result, or execution status. A valid `input` must be specified. When not specified, the input value defaults to an empty string.
+* `operator`: Represents the relationship of an input to a set of `values`. A valid `operator` must be specified, which can be either `in` or `notin`.
+* `values`: Represents an array of string values. A non-empty array must be specified that can contain static values or variables such as parameters, results, or a bound state of a Workspace.
+
+The declared `when` expressions are evaluated before the Task is run. If all the `when` expressions evaluate to `True`, then the task is run. If any of the `when` expressions evaluates to `False`, the task is skipped.
+
+The *Pipeline Run details* page of the {product-title} web console shows the status of the tasks and the `when` expressions as follows:
+
+* All the criteria are met: Tasks and the `when` expression symbol, which is represented by a diamond shape, are in green.
+* Any of the criteria is not met: Task is skipped; skipped task and the `when` expression symbol are in grey.
+* None of the criteria is met: Task is skipped; skipped task and the `when` expression symbol are in grey.
+* Task run fails: Failed tasks and the `when` expression symbol are in red.
+
+With the `when` expressions, you can check a lot of scenarios. For example, whether:
+
+* The result of a previous Task is as expected.
+* A file in a Git repository has changed in the previous commits.
+* An image exists in the registry.
+* An optional Workspace has been provided.
+
+[NOTE]
+====
+* The parameters are read from the Pipeline and the `results` are read directly from the previous Tasks.
+* Using results in a `when` expression in a guarded Task introduces a resource dependency on the previous Task that produced the result.
+* `when` expressions are supported in the final tasks, which are specified using the `finally` field in the pipeline YAML file. `when` expressions in the final task provide efficient guarded execution and improved reusability of tasks.
+====
+
+The following example shows the `when` expressions for a PipelineRun to execute the `create-file` task only if the succeeding criteria is met: the `path` parameter is `README.md`,  and the `echo-file-exists` task executed only if the `exists` result from the `check-file` task is `yes`.
+[source,yaml]
+----
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun <1>
+metadata:
+  generateName: guarded-pr-
+spec:
+  serviceAccountName: 'default'
+  pipelineSpec:
+    params:
+      - name: path
+        type: string
+        description: The path of the file to be created
+    workspaces:
+      - name: source
+        description: |
+          This workspace is shared among all the pipeline tasks to read/write common resources
+    tasks:
+      - name: create-file <2>
+        when:
+          - input: "$(params.path)"
+            operator: in
+            values: ["README.md"]
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec:
+          workspaces:
+            - name: source
+              description: The workspace to create the readme file in
+          steps:
+            - name: write-new-stuff
+              image: ubuntu
+              script: 'touch $(workspaces.source.path)/README.md'
+      - name: check-file
+        params:
+          - name: path
+            value: "$(params.path)"
+        workspaces:
+          - name: source
+            workspace: source
+        runAfter:
+          - create-file
+        taskSpec:
+          params:
+            - name: path
+          workspaces:
+            - name: source
+              description: The workspace to check for the file
+          results:
+            - name: exists
+              description: indicates whether the file exists or is missing
+          steps:
+            - name: check-file
+              image: alpine
+              script: |
+                if test -f $(workspaces.source.path)/$(params.path); then
+                  printf yes | tee /tekton/results/exists
+                else
+                  printf no | tee /tekton/results/exists
+                fi
+      - name: echo-file-exists
+        when: <3>
+          - input: "$(tasks.check-file.results.exists)"
+            operator: in
+            values: ["yes"]
+        taskSpec:
+          steps:
+            - name: echo
+              image: ubuntu
+              script: 'echo file exists'
+...
+      - name: task-should-be-skipped-1
+        when: <4>
+          - input: "$(params.path)"
+            operator: notin
+            values: ["README.md"]
+        taskSpec:
+          steps:
+            - name: echo
+              image: ubuntu
+              script: exit 1
+...
+    finally:
+      - name: finally-task-should-be-executed
+        When: <5>
+          - input: "$(tasks.echo-file-exists.status)"
+            operator: in
+            values: ["Succeeded"]
+          - input: "$(tasks.status)"
+            operator: in
+            values: ["Succeeded"]
+          - input: "$(tasks.check-file.results.exists)"
+            operator: in
+            values: ["yes"]
+          - input: "$(params.path)"
+            operator: in
+            values: ["README.md"]
+        taskSpec:
+          steps:
+            - name: echo
+              image: ubuntu
+              script: 'echo finally done'
+  params:
+    - name: path
+      value: README.md
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 16Mi
+----
+<1> Specifies the type of Kubernetes object. In this example, `PipelineRun`.
+<2> Specifies the list of Tasks used in the Pipeline.
+<3> Specifies the `when` expression to execute the `echo-file-exists` task only if the `exists` result from the `check-file` task is `yes`.
+<4> Specifies the `when` expression to skip the `task-should-be-skipped-1` task only if the `path` parameter is not `README.md`.
+<5> Specifies the `when` expression to execute the `finally-task-should-be-executed` task only if the execution status of the `echo-file-exists` task and the task status is `Succeeded`, the `exists` result from the `check-file` task is `yes`, and the `path` parameter is `README.md`.
+
+The following example shows the `when` expressions to execute the `run-lint` task only if the `lint-config` optional workspace has been provided by a PipelineRun.
+
+[source,yaml]
+----
+tasks:
+  - name: run-lint
+    when:
+      - input: "$(workspaces.lint-config.bound)"
+        operator: in
+        values: ["true"]
+    taskRef:
+      name: lint-source
+----

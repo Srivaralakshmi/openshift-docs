@@ -42,3 +42,7 @@ include::modules/op-starting-pipelines.adoc[leveloffset=+1]
 include::modules/op-editing-pipelines.adoc[leveloffset=+1]
 
 include::modules/op-deleting-pipelines.adoc[leveloffset=+1]
+
+== Additional resources
+
+* For more details on the final tasks and how to add them to the Pipeline, see the link:https://github.com/tektoncd/pipeline/blob/main/docs/pipelines.md#adding-finally-to-the-pipeline[Adding Finally to the Pipeline] section in the GitHub documentation for Pipelines.

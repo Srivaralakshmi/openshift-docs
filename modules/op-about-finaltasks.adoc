@@ -1,0 +1,68 @@
+// This module is included in the following assembly:
+//
+// *openshift_pipelines/understanding-openshift-pipelines.adoc
+
+[id="about-finaltasks_{context}"]
+= Final tasks
+
+The final set of tasks specified using the `finally` field in the pipeline YAML file are executed in parallel after all the pipeline tasks are run irrespective of their execution status. The final set of tasks are always executed as specified, before the corresponding pipeline exits. These tasks are located at the end of the pipeline in the web console.
+
+The components of a final task are as follows:
+
+* `name`: Represents the name of the final task.
+* `taskRef`: Represents a reference to the task, which is to be executed in the TaskRun.
+* `taskSpec`: Represents a reference to the Task definition, which is to be embedded directly in the TaskRun.
+* `workspace`: Represents a shared storage volume that a Task in a Pipeline needs at runtime to receive input or provide output.
+* `params`: Represents the values specified for a task. If a parameter does not have an implicit default value, you must explicitly set its value.
+
+A final task can be configured to consume the results of any task within the same pipeline. The scheduling of such final tasks does not change; it will still be executed in parallel with other final tasks after all the non-final tasks are executed.
+
+The following example shows a code snippet of the `clone-cleanup-workspace` Pipeline, which clones the repository into a shared workspace and cleans up the workspace after executing all the final set of tasks as specified in the `finally` section of the Pipeline YAML file.
+
+[source,yaml]
+----
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: clone-cleanup-workspace <1>
+spec:
+  workspaces:
+    - name: git-source <2>
+  tasks:
+    - name: clone-app-repo <3>
+      taskRef:
+        name: git-clone-from-catalog
+      params:
+        - name: url
+          value: https://github.com/tektoncd/community.git
+        - name: subdirectory
+          value: application
+      workspaces:
+        - name: output
+          workspace: git-source
+  finally:
+    - name: cleanup <4>
+      taskRef:
+        name: cleanup-workspace
+      workspaces:
+        - name: source
+          workspace: git-source
+    - name: check-git-commit
+      params:
+        - name: commit
+          value: $(tasks.clone-app-repo.results.commit)
+      taskSpec:
+        params:
+          - name: commit
+        steps:
+          - name: check-commit-initialized
+            image: alpine
+            script: |
+              if [[ ! $(params.commit) ]]; then
+                exit 1
+              fi
+----
+<1> Specifies the unique name of the Pipeline.
+<2> Specifies the shared workspace where the git repository is cloned.
+<3> Specifies the task to clone the application repository to the shared workspace.
+<4> Specifies the task to clean-up the shared workspace.
