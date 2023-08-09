@@ -26,7 +26,8 @@
 +
 [NOTE]
 ====
-To login with your {product-title} credentials, select the `LOG IN VIA OPENSHIFT` option in the Argo CD user interface.
+* To log in with your {product-title} credentials, ensure you are a user of the `cluster-admins` group and then select the `LOG IN VIA OPENSHIFT` option in the Argo CD user interface.
+* To be a user of the `cluster-admins` group, use the `oc adm groups new cluster-admins admin` command. 
 ====
 
 . Use this password and `admin` as the username to log in to the Argo CD UI in the new window.
