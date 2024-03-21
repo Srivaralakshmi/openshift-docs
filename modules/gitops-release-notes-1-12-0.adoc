@@ -51,7 +51,12 @@ The `argocd` executable binary file is included in the archive and RPM formats.
 This update removes any configuration added to `argocd-notifications-cm` ConfigMap. You must take a backup of your configuration and update the configuration/backup in the `default-notifications-configuration` custom resource of `kind:NotificationsConfiguration` after upgrading to the new version. Also, with this update, any modifications to `argocd-notifications-cm` ConfigMap are not allowed.
 ====
 
-* With this update, two new fields `.spec.applicationSet.sourceNamespaces` and `.spec.applicationSet.scmProviders` are introduced in the `ArgoCD` CRD to support `ApplicationSet` in any namespaces. Administrators can use these fields to define certain namespaces that manage `ApplicationSet` resources. link:https://issues.redhat.com/browse/GITOPS-3754[GITOPS-3754]
+* With this update, two new fields `.spec.applicationSet.sourceNamespaces` and `.spec.applicationSet.scmProviders` are introduced in the `ArgoCD` CRD to support `ApplicationSet` in any non-control plane namespaces. Administrators can use these fields to define certain namespaces that manage `ApplicationSet` resources. link:https://issues.redhat.com/browse/GITOPS-3754[GITOPS-3754]
++
+[WARNING]
+==== 	
+The Argo CD application sets in non-control plane namespaces is a Technology Preview feature.
+====
 
 * With this update, Argo CD server has the required permissions to manage `ApplicationSet` resources. link:https://issues.redhat.com/browse/GITOPS-3762[GITOPS-3762]
 
